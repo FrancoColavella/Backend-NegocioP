@@ -1,13 +1,8 @@
 package com.negociop.negociop_backend.controller;
 
-import com.negociop.negociop_backend.entity.Color;
-import com.negociop.negociop_backend.entity.Producto;
 import com.negociop.negociop_backend.entity.ProductoVariante;
-import com.negociop.negociop_backend.entity.Talle;
-import com.negociop.negociop_backend.repository.ColorRepository;
-import com.negociop.negociop_backend.repository.ProductoRepository;
 import com.negociop.negociop_backend.repository.ProductoVarianteRepository;
-import com.negociop.negociop_backend.repository.TalleRepository;
+import com.negociop.negociop_backend.service.MovimientoStockService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,199 +17,63 @@ import java.util.Map;
 public class ProductoVarianteController {
 
     private final ProductoVarianteRepository productoVarianteRepository;
-    private final ProductoRepository productoRepository;
-    private final TalleRepository talleRepository;
-    private final ColorRepository colorRepository;
+    private final MovimientoStockService movimientoStockService;
 
     public ProductoVarianteController(
             ProductoVarianteRepository productoVarianteRepository,
-            ProductoRepository productoRepository,
-            TalleRepository talleRepository,
-            ColorRepository colorRepository
+            MovimientoStockService movimientoStockService
     ) {
         this.productoVarianteRepository = productoVarianteRepository;
-        this.productoRepository = productoRepository;
-        this.talleRepository = talleRepository;
-        this.colorRepository = colorRepository;
+        this.movimientoStockService = movimientoStockService;
     }
 
-    /**
-     * Obtiene todas las variantes.
-     *
-     * Utilizado principalmente por el panel Admin.
-     */
+    // =========================================================
+    // OBTENER TODAS
+    // =========================================================
+
     @GetMapping
     public List<ProductoVariante> obtenerTodas() {
-
         return productoVarianteRepository.findAll();
     }
 
-    /**
-     * Obtiene una variante por ID.
-     */
+    // =========================================================
+    // OBTENER POR ID
+    // =========================================================
+
     @GetMapping("/{id}")
     public ResponseEntity<?> obtenerPorId(
             @PathVariable Long id
     ) {
 
-        ProductoVariante variante =
-                productoVarianteRepository
-                        .findById(id)
-                        .orElse(null);
+        var variante =
+                productoVarianteRepository.findById(id);
 
-        if (variante == null) {
-
-            return ResponseEntity
-                    .status(HttpStatus.NOT_FOUND)
-                    .body(Map.of(
-                            "error",
-                            "Variante no encontrada",
-                            "id",
-                            id
-                    ));
+        if (variante.isPresent()) {
+            return ResponseEntity.ok(variante.get());
         }
 
-        return ResponseEntity.ok(variante);
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(
+                        Map.of(
+                                "error",
+                                "Variante no encontrada",
+                                "id",
+                                id
+                        )
+                );
     }
 
-    /**
-     * Obtiene todas las variantes de un producto.
-     *
-     * Este endpoint es utilizado por el frontend público
-     * para mostrar los talles y colores disponibles
-     * cuando el cliente abre un producto.
-     *
-     * Ejemplo:
-     *
-     * GET /api/variantes/producto/1
-     */
-    @GetMapping("/producto/{productoId}")
-    public ResponseEntity<?> obtenerPorProducto(
-            @PathVariable Long productoId
-    ) {
+    // =========================================================
+    // CREAR
+    // =========================================================
 
-        if (productoId == null) {
-
-            return ResponseEntity
-                    .badRequest()
-                    .body(Map.of(
-                            "error",
-                            "El ID del producto es obligatorio"
-                    ));
-        }
-
-        /*
-         * Verificamos que el producto exista.
-         */
-        if (!productoRepository.existsById(productoId)) {
-
-            return ResponseEntity
-                    .status(HttpStatus.NOT_FOUND)
-                    .body(Map.of(
-                            "error",
-                            "Producto no encontrado",
-                            "productoId",
-                            productoId
-                    ));
-        }
-
-        /*
-         * Obtenemos todas las variantes
-         * pertenecientes al producto.
-         */
-        List<ProductoVariante> variantes =
-                productoVarianteRepository
-                        .findByProductoId(productoId);
-
-        return ResponseEntity.ok(variantes);
-    }
-
-    /**
-     * Crea una variante.
-     */
     @PostMapping
     public ResponseEntity<?> crear(
             @RequestBody ProductoVariante variante
     ) {
 
         try {
-
-            if (variante.getProducto() == null ||
-                    variante.getProducto().getId() == null) {
-
-                return ResponseEntity.badRequest()
-                        .body(Map.of(
-                                "error",
-                                "Debe indicar el producto"
-                        ));
-            }
-
-            if (variante.getTalle() == null ||
-                    variante.getTalle().getId() == null) {
-
-                return ResponseEntity.badRequest()
-                        .body(Map.of(
-                                "error",
-                                "Debe indicar el talle"
-                        ));
-            }
-
-            if (variante.getColor() == null ||
-                    variante.getColor().getId() == null) {
-
-                return ResponseEntity.badRequest()
-                        .body(Map.of(
-                                "error",
-                                "Debe indicar el color"
-                        ));
-            }
-
-            if (variante.getStock() == null ||
-                    variante.getStock() < 0) {
-
-                return ResponseEntity.badRequest()
-                        .body(Map.of(
-                                "error",
-                                "El stock no puede ser negativo"
-                        ));
-            }
-
-            Producto producto =
-                    productoRepository
-                            .findById(
-                                    variante.getProducto().getId()
-                            )
-                            .orElseThrow(() ->
-                                    new RuntimeException(
-                                            "Producto no encontrado"
-                                    )
-                            );
-
-            Talle talle =
-                    talleRepository
-                            .findById(
-                                    variante.getTalle().getId()
-                            )
-                            .orElseThrow(() ->
-                                    new RuntimeException(
-                                            "Talle no encontrado"
-                                    )
-                            );
-
-            Color color =
-                    colorRepository
-                            .findById(
-                                    variante.getColor().getId()
-                            )
-                            .orElseThrow(() ->
-                                    new RuntimeException(
-                                            "Color no encontrado"
-                                    )
-                            );
-
-            variante.setProducto(producto);
-            variante.setTalle(talle);
-            variante.setColor(color);
 
             ProductoVariante nuevaVariante =
                     productoVarianteRepository.save(variante);
@@ -227,131 +86,67 @@ public class ProductoVarianteController {
 
             return ResponseEntity
                     .status(HttpStatus.CONFLICT)
-                    .body(Map.of(
-                            "error",
-                            "Ya existe una variante para este producto, talle y color"
-                    ));
-
-        } catch (RuntimeException e) {
-
-            return ResponseEntity
-                    .badRequest()
-                    .body(Map.of(
-                            "error",
-                            e.getMessage()
-                    ));
+                    .body(
+                            Map.of(
+                                    "error",
+                                    "Ya existe una variante para este producto, talle y color"
+                            )
+                    );
         }
     }
 
-    /**
-     * Actualiza una variante.
-     */
+    // =========================================================
+    // ACTUALIZAR VARIANTE COMPLETA
+    // =========================================================
+
     @PutMapping("/{id}")
     public ResponseEntity<?> actualizar(
             @PathVariable Long id,
             @RequestBody ProductoVariante variante
     ) {
 
-        ProductoVariante varianteExistente =
-                productoVarianteRepository
-                        .findById(id)
-                        .orElse(null);
+        var resultado =
+                productoVarianteRepository.findById(id);
 
-        if (varianteExistente == null) {
+        if (resultado.isEmpty()) {
 
             return ResponseEntity
                     .status(HttpStatus.NOT_FOUND)
-                    .body(Map.of(
-                            "error",
-                            "Variante no encontrada",
-                            "id",
-                            id
-                    ));
+                    .body(
+                            Map.of(
+                                    "error",
+                                    "Variante no encontrada",
+                                    "id",
+                                    id
+                            )
+                    );
         }
+
+        ProductoVariante varianteExistente =
+                resultado.get();
+
+        varianteExistente.setProducto(
+                variante.getProducto()
+        );
+
+        varianteExistente.setTalle(
+                variante.getTalle()
+        );
+
+        varianteExistente.setColor(
+                variante.getColor()
+        );
+
+        varianteExistente.setStock(
+                variante.getStock()
+        );
 
         try {
 
-            if (variante.getProducto() == null ||
-                    variante.getProducto().getId() == null) {
-
-                return ResponseEntity.badRequest()
-                        .body(Map.of(
-                                "error",
-                                "Debe indicar el producto"
-                        ));
-            }
-
-            if (variante.getTalle() == null ||
-                    variante.getTalle().getId() == null) {
-
-                return ResponseEntity.badRequest()
-                        .body(Map.of(
-                                "error",
-                                "Debe indicar el talle"
-                        ));
-            }
-
-            if (variante.getColor() == null ||
-                    variante.getColor().getId() == null) {
-
-                return ResponseEntity.badRequest()
-                        .body(Map.of(
-                                "error",
-                                "Debe indicar el color"
-                        ));
-            }
-
-            if (variante.getStock() == null ||
-                    variante.getStock() < 0) {
-
-                return ResponseEntity.badRequest()
-                        .body(Map.of(
-                                "error",
-                                "El stock no puede ser negativo"
-                        ));
-            }
-
-            Producto producto =
-                    productoRepository
-                            .findById(
-                                    variante.getProducto().getId()
-                            )
-                            .orElseThrow(() ->
-                                    new RuntimeException(
-                                            "Producto no encontrado"
-                                    )
-                            );
-
-            Talle talle =
-                    talleRepository
-                            .findById(
-                                    variante.getTalle().getId()
-                            )
-                            .orElseThrow(() ->
-                                    new RuntimeException(
-                                            "Talle no encontrado"
-                                    )
-                            );
-
-            Color color =
-                    colorRepository
-                            .findById(
-                                    variante.getColor().getId()
-                            )
-                            .orElseThrow(() ->
-                                    new RuntimeException(
-                                            "Color no encontrado"
-                                    )
-                            );
-
-            varianteExistente.setProducto(producto);
-            varianteExistente.setTalle(talle);
-            varianteExistente.setColor(color);
-            varianteExistente.setStock(variante.getStock());
-
             ProductoVariante actualizada =
-                    productoVarianteRepository
-                            .save(varianteExistente);
+                    productoVarianteRepository.save(
+                            varianteExistente
+                    );
 
             return ResponseEntity.ok(actualizada);
 
@@ -359,25 +154,94 @@ public class ProductoVarianteController {
 
             return ResponseEntity
                     .status(HttpStatus.CONFLICT)
-                    .body(Map.of(
-                            "error",
-                            "Ya existe otra variante para este producto, talle y color"
-                    ));
+                    .body(
+                            Map.of(
+                                    "error",
+                                    "Ya existe otra variante para este producto, talle y color"
+                            )
+                    );
+        }
+    }
+
+    // =========================================================
+    // ACTUALIZAR SOLO STOCK
+    // =========================================================
+
+    @PutMapping("/{id}/stock")
+    public ResponseEntity<?> actualizarStock(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> datos
+    ) {
+
+        try {
+
+            Object stockObject =
+                    datos.get("stock");
+
+            if (stockObject == null) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .body(
+                                Map.of(
+                                        "error",
+                                        "El campo stock es obligatorio"
+                                )
+                        );
+            }
+
+            Integer nuevoStock;
+
+            if (stockObject instanceof Number) {
+
+                nuevoStock =
+                        ((Number) stockObject).intValue();
+
+            } else {
+
+                nuevoStock =
+                        Integer.valueOf(
+                                stockObject.toString()
+                        );
+            }
+
+            ProductoVariante actualizada =
+                    movimientoStockService
+                            .actualizarStockManual(
+                                    id,
+                                    nuevoStock
+                            );
+
+            return ResponseEntity.ok(actualizada);
+
+        } catch (NumberFormatException e) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(
+                            Map.of(
+                                    "error",
+                                    "El stock debe ser un número entero válido"
+                            )
+                    );
 
         } catch (RuntimeException e) {
 
             return ResponseEntity
                     .badRequest()
-                    .body(Map.of(
-                            "error",
-                            e.getMessage()
-                    ));
+                    .body(
+                            Map.of(
+                                    "error",
+                                    e.getMessage()
+                            )
+                    );
         }
     }
 
-    /**
-     * Elimina una variante.
-     */
+    // =========================================================
+    // ELIMINAR
+    // =========================================================
+
     @DeleteMapping("/{id}")
     public ResponseEntity<?> eliminar(
             @PathVariable Long id
@@ -387,25 +251,25 @@ public class ProductoVarianteController {
 
             return ResponseEntity
                     .status(HttpStatus.NOT_FOUND)
-                    .body(Map.of(
-                            "error",
-                            "Variante no encontrada",
-                            "id",
-                            id
-                    ));
+                    .body(
+                            Map.of(
+                                    "error",
+                                    "Variante no encontrada",
+                                    "id",
+                                    id
+                            )
+                    );
         }
 
         productoVarianteRepository.deleteById(id);
 
-        return ResponseEntity
-                .noContent()
-                .build();
+        return ResponseEntity.noContent().build();
     }
 
-    /**
-     * Obtiene una variante específica
-     * por producto + talle + color.
-     */
+    // =========================================================
+    // OBTENER POR PRODUCTO + TALLE + COLOR
+    // =========================================================
+
     @GetMapping(
             "/producto/{productoId}/talle/{talleId}/color/{colorId}"
     )
@@ -415,31 +279,41 @@ public class ProductoVarianteController {
             @PathVariable Long colorId
     ) {
 
-        ProductoVariante variante =
+        var resultado =
                 productoVarianteRepository
                         .findByProductoIdAndTalleIdAndColorId(
                                 productoId,
                                 talleId,
                                 colorId
-                        )
-                        .orElse(null);
+                        );
 
-        if (variante == null) {
-
-            return ResponseEntity
-                    .status(HttpStatus.NOT_FOUND)
-                    .body(Map.of(
-                            "error",
-                            "Variante no encontrada",
-                            "productoId",
-                            productoId,
-                            "talleId",
-                            talleId,
-                            "colorId",
-                            colorId
-                    ));
+        if (resultado.isPresent()) {
+            return ResponseEntity.ok(resultado.get());
         }
 
-        return ResponseEntity.ok(variante);
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(
+                        Map.of(
+                                "error",
+                                "No existe una variante para ese producto, talle y color"
+                        )
+                );
+    }
+
+    // =========================================================
+    // OBTENER VARIANTES DE UN PRODUCTO
+    // =========================================================
+
+    @GetMapping("/producto/{productoId}")
+    public ResponseEntity<?> obtenerPorProducto(
+            @PathVariable Long productoId
+    ) {
+
+        List<ProductoVariante> variantes =
+                productoVarianteRepository
+                        .findByProductoId(productoId);
+
+        return ResponseEntity.ok(variantes);
     }
 }

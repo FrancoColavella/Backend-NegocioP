@@ -24,17 +24,10 @@ public class MovimientoStockService {
         this.productoVarianteRepository = productoVarianteRepository;
     }
 
-    /**
-     * Registra un movimiento de stock.
-     *
-     * IMPORTANTE:
-     * Este método solamente registra el movimiento.
-     * No modifica el stock de la variante.
-     *
-     * La modificación del stock se realizará desde los
-     * servicios correspondientes y este servicio dejará
-     * constancia del movimiento.
-     */
+    // =========================================================
+    // REGISTRAR MOVIMIENTO
+    // =========================================================
+
     @Transactional
     public MovimientoStock registrarMovimiento(
             Long varianteId,
@@ -51,41 +44,31 @@ public class MovimientoStockService {
             );
         }
 
-        if (tipo == null ||
-                tipo.trim().isEmpty()) {
-
+        if (tipo == null || tipo.trim().isEmpty()) {
             throw new RuntimeException(
                     "El tipo de movimiento es obligatorio"
             );
         }
 
-        if (cantidad == null ||
-                cantidad <= 0) {
-
+        if (cantidad == null || cantidad <= 0) {
             throw new RuntimeException(
                     "La cantidad debe ser mayor a cero"
             );
         }
 
-        if (stockAnterior == null ||
-                stockAnterior < 0) {
-
+        if (stockAnterior == null || stockAnterior < 0) {
             throw new RuntimeException(
                     "El stock anterior no es válido"
             );
         }
 
-        if (stockPosterior == null ||
-                stockPosterior < 0) {
-
+        if (stockPosterior == null || stockPosterior < 0) {
             throw new RuntimeException(
                     "El stock posterior no es válido"
             );
         }
 
-        if (motivo == null ||
-                motivo.trim().isEmpty()) {
-
+        if (motivo == null || motivo.trim().isEmpty()) {
             throw new RuntimeException(
                     "El motivo es obligatorio"
             );
@@ -103,7 +86,6 @@ public class MovimientoStockService {
         );
 
         if (!tiposValidos.contains(tipoNormalizado)) {
-
             throw new RuntimeException(
                     "Tipo de movimiento inválido: "
                             + tipoNormalizado
@@ -133,18 +115,176 @@ public class MovimientoStockService {
         return movimientoStockRepository.save(movimiento);
     }
 
-    /**
-     * Obtiene todo el historial de movimientos.
-     */
+    // =========================================================
+    // AJUSTE MANUAL
+    // =========================================================
+
+    @Transactional
+    public ProductoVariante actualizarStockManual(
+            Long varianteId,
+            Integer nuevoStock
+    ) {
+
+        if (varianteId == null) {
+            throw new RuntimeException(
+                    "La variante es obligatoria"
+            );
+        }
+
+        if (nuevoStock == null || nuevoStock < 0) {
+            throw new RuntimeException(
+                    "El stock debe ser mayor o igual a cero"
+            );
+        }
+
+        ProductoVariante variante =
+                productoVarianteRepository.findById(varianteId)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "No existe la variante con ID: "
+                                                + varianteId
+                                )
+                        );
+
+        int stockAnterior =
+                variante.getStock();
+
+        int stockPosterior =
+                nuevoStock;
+
+        if (stockAnterior == stockPosterior) {
+            return variante;
+        }
+
+        int cantidad =
+                Math.abs(
+                        stockPosterior -
+                                stockAnterior
+                );
+
+        variante.setStock(stockPosterior);
+
+        ProductoVariante actualizada =
+                productoVarianteRepository.save(
+                        variante
+                );
+
+        registrarMovimiento(
+                varianteId,
+                "AJUSTE",
+                cantidad,
+                stockAnterior,
+                stockPosterior,
+                "Ajuste manual de stock"
+        );
+
+        return actualizada;
+    }
+
+    // =========================================================
+    // ENTRADA / SALIDA DE MERCADERÍA
+    // =========================================================
+
+    @Transactional
+    public ProductoVariante registrarEntradaSalida(
+            Long varianteId,
+            String tipo,
+            Integer cantidad,
+            String motivo
+    ) {
+
+        if (varianteId == null) {
+            throw new RuntimeException(
+                    "La variante es obligatoria"
+            );
+        }
+
+        if (cantidad == null || cantidad <= 0) {
+            throw new RuntimeException(
+                    "La cantidad debe ser mayor a cero"
+            );
+        }
+
+        if (motivo == null || motivo.trim().isEmpty()) {
+            throw new RuntimeException(
+                    "El motivo es obligatorio"
+            );
+        }
+
+        String tipoNormalizado =
+                tipo.trim().toUpperCase();
+
+        if (
+                !tipoNormalizado.equals("ENTRADA") &&
+                        !tipoNormalizado.equals("SALIDA")
+        ) {
+            throw new RuntimeException(
+                    "El tipo debe ser ENTRADA o SALIDA"
+            );
+        }
+
+        ProductoVariante variante =
+                productoVarianteRepository.findById(varianteId)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "No existe la variante con ID: "
+                                                + varianteId
+                                )
+                        );
+
+        int stockAnterior =
+                variante.getStock();
+
+        int stockPosterior;
+
+        if (tipoNormalizado.equals("ENTRADA")) {
+
+            stockPosterior =
+                    stockAnterior + cantidad;
+
+        } else {
+
+            if (cantidad > stockAnterior) {
+                throw new RuntimeException(
+                        "No hay suficiente stock. " +
+                                "Stock actual: " +
+                                stockAnterior
+                );
+            }
+
+            stockPosterior =
+                    stockAnterior - cantidad;
+        }
+
+        variante.setStock(stockPosterior);
+
+        ProductoVariante actualizada =
+                productoVarianteRepository.save(
+                        variante
+                );
+
+        registrarMovimiento(
+                varianteId,
+                tipoNormalizado,
+                cantidad,
+                stockAnterior,
+                stockPosterior,
+                motivo
+        );
+
+        return actualizada;
+    }
+
+    // =========================================================
+    // HISTORIAL
+    // =========================================================
+
     public List<MovimientoStock> obtenerTodos() {
 
         return movimientoStockRepository
                 .findAllByOrderByFechaDesc();
     }
 
-    /**
-     * Obtiene el historial de una variante específica.
-     */
     public List<MovimientoStock> obtenerPorVariante(
             Long varianteId
     ) {

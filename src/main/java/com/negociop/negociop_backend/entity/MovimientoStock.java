@@ -1,6 +1,5 @@
 package com.negociop.negociop_backend.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
@@ -15,11 +14,6 @@ public class MovimientoStock {
 
     @ManyToOne
     @JoinColumn(name = "variante_id", nullable = false)
-    @JsonIgnoreProperties({
-            "producto",
-            "talle",
-            "color"
-    })
     private ProductoVariante variante;
 
     @Column(nullable = false)
