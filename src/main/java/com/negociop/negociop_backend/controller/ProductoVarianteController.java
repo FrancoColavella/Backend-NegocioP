@@ -38,31 +38,104 @@ public class ProductoVarianteController {
         this.colorRepository = colorRepository;
     }
 
+    /**
+     * Obtiene todas las variantes.
+     *
+     * Utilizado principalmente por el panel Admin.
+     */
     @GetMapping
     public List<ProductoVariante> obtenerTodas() {
+
         return productoVarianteRepository.findAll();
     }
 
+    /**
+     * Obtiene una variante por ID.
+     */
     @GetMapping("/{id}")
-    public ResponseEntity<?> obtenerPorId(@PathVariable Long id) {
+    public ResponseEntity<?> obtenerPorId(
+            @PathVariable Long id
+    ) {
 
         ProductoVariante variante =
-                productoVarianteRepository.findById(id).orElse(null);
+                productoVarianteRepository
+                        .findById(id)
+                        .orElse(null);
 
         if (variante == null) {
+
             return ResponseEntity
                     .status(HttpStatus.NOT_FOUND)
                     .body(Map.of(
-                            "error", "Variante no encontrada",
-                            "id", id
+                            "error",
+                            "Variante no encontrada",
+                            "id",
+                            id
                     ));
         }
 
         return ResponseEntity.ok(variante);
     }
 
+    /**
+     * Obtiene todas las variantes de un producto.
+     *
+     * Este endpoint es utilizado por el frontend público
+     * para mostrar los talles y colores disponibles
+     * cuando el cliente abre un producto.
+     *
+     * Ejemplo:
+     *
+     * GET /api/variantes/producto/1
+     */
+    @GetMapping("/producto/{productoId}")
+    public ResponseEntity<?> obtenerPorProducto(
+            @PathVariable Long productoId
+    ) {
+
+        if (productoId == null) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(Map.of(
+                            "error",
+                            "El ID del producto es obligatorio"
+                    ));
+        }
+
+        /*
+         * Verificamos que el producto exista.
+         */
+        if (!productoRepository.existsById(productoId)) {
+
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(Map.of(
+                            "error",
+                            "Producto no encontrado",
+                            "productoId",
+                            productoId
+                    ));
+        }
+
+        /*
+         * Obtenemos todas las variantes
+         * pertenecientes al producto.
+         */
+        List<ProductoVariante> variantes =
+                productoVarianteRepository
+                        .findByProductoId(productoId);
+
+        return ResponseEntity.ok(variantes);
+    }
+
+    /**
+     * Crea una variante.
+     */
     @PostMapping
-    public ResponseEntity<?> crear(@RequestBody ProductoVariante variante) {
+    public ResponseEntity<?> crear(
+            @RequestBody ProductoVariante variante
+    ) {
 
         try {
 
@@ -70,44 +143,74 @@ public class ProductoVarianteController {
                     variante.getProducto().getId() == null) {
 
                 return ResponseEntity.badRequest()
-                        .body(Map.of("error", "Debe indicar el producto"));
+                        .body(Map.of(
+                                "error",
+                                "Debe indicar el producto"
+                        ));
             }
 
             if (variante.getTalle() == null ||
                     variante.getTalle().getId() == null) {
 
                 return ResponseEntity.badRequest()
-                        .body(Map.of("error", "Debe indicar el talle"));
+                        .body(Map.of(
+                                "error",
+                                "Debe indicar el talle"
+                        ));
             }
 
             if (variante.getColor() == null ||
                     variante.getColor().getId() == null) {
 
                 return ResponseEntity.badRequest()
-                        .body(Map.of("error", "Debe indicar el color"));
+                        .body(Map.of(
+                                "error",
+                                "Debe indicar el color"
+                        ));
             }
 
             if (variante.getStock() == null ||
                     variante.getStock() < 0) {
 
                 return ResponseEntity.badRequest()
-                        .body(Map.of("error", "El stock no puede ser negativo"));
+                        .body(Map.of(
+                                "error",
+                                "El stock no puede ser negativo"
+                        ));
             }
 
-            Producto producto = productoRepository
-                    .findById(variante.getProducto().getId())
-                    .orElseThrow(() ->
-                            new RuntimeException("Producto no encontrado"));
+            Producto producto =
+                    productoRepository
+                            .findById(
+                                    variante.getProducto().getId()
+                            )
+                            .orElseThrow(() ->
+                                    new RuntimeException(
+                                            "Producto no encontrado"
+                                    )
+                            );
 
-            Talle talle = talleRepository
-                    .findById(variante.getTalle().getId())
-                    .orElseThrow(() ->
-                            new RuntimeException("Talle no encontrado"));
+            Talle talle =
+                    talleRepository
+                            .findById(
+                                    variante.getTalle().getId()
+                            )
+                            .orElseThrow(() ->
+                                    new RuntimeException(
+                                            "Talle no encontrado"
+                                    )
+                            );
 
-            Color color = colorRepository
-                    .findById(variante.getColor().getId())
-                    .orElseThrow(() ->
-                            new RuntimeException("Color no encontrado"));
+            Color color =
+                    colorRepository
+                            .findById(
+                                    variante.getColor().getId()
+                            )
+                            .orElseThrow(() ->
+                                    new RuntimeException(
+                                            "Color no encontrado"
+                                    )
+                            );
 
             variante.setProducto(producto);
             variante.setTalle(talle);
@@ -140,6 +243,9 @@ public class ProductoVarianteController {
         }
     }
 
+    /**
+     * Actualiza una variante.
+     */
     @PutMapping("/{id}")
     public ResponseEntity<?> actualizar(
             @PathVariable Long id,
@@ -147,15 +253,19 @@ public class ProductoVarianteController {
     ) {
 
         ProductoVariante varianteExistente =
-                productoVarianteRepository.findById(id).orElse(null);
+                productoVarianteRepository
+                        .findById(id)
+                        .orElse(null);
 
         if (varianteExistente == null) {
 
             return ResponseEntity
                     .status(HttpStatus.NOT_FOUND)
                     .body(Map.of(
-                            "error", "Variante no encontrada",
-                            "id", id
+                            "error",
+                            "Variante no encontrada",
+                            "id",
+                            id
                     ));
         }
 
@@ -165,44 +275,74 @@ public class ProductoVarianteController {
                     variante.getProducto().getId() == null) {
 
                 return ResponseEntity.badRequest()
-                        .body(Map.of("error", "Debe indicar el producto"));
+                        .body(Map.of(
+                                "error",
+                                "Debe indicar el producto"
+                        ));
             }
 
             if (variante.getTalle() == null ||
                     variante.getTalle().getId() == null) {
 
                 return ResponseEntity.badRequest()
-                        .body(Map.of("error", "Debe indicar el talle"));
+                        .body(Map.of(
+                                "error",
+                                "Debe indicar el talle"
+                        ));
             }
 
             if (variante.getColor() == null ||
                     variante.getColor().getId() == null) {
 
                 return ResponseEntity.badRequest()
-                        .body(Map.of("error", "Debe indicar el color"));
+                        .body(Map.of(
+                                "error",
+                                "Debe indicar el color"
+                        ));
             }
 
             if (variante.getStock() == null ||
                     variante.getStock() < 0) {
 
                 return ResponseEntity.badRequest()
-                        .body(Map.of("error", "El stock no puede ser negativo"));
+                        .body(Map.of(
+                                "error",
+                                "El stock no puede ser negativo"
+                        ));
             }
 
-            Producto producto = productoRepository
-                    .findById(variante.getProducto().getId())
-                    .orElseThrow(() ->
-                            new RuntimeException("Producto no encontrado"));
+            Producto producto =
+                    productoRepository
+                            .findById(
+                                    variante.getProducto().getId()
+                            )
+                            .orElseThrow(() ->
+                                    new RuntimeException(
+                                            "Producto no encontrado"
+                                    )
+                            );
 
-            Talle talle = talleRepository
-                    .findById(variante.getTalle().getId())
-                    .orElseThrow(() ->
-                            new RuntimeException("Talle no encontrado"));
+            Talle talle =
+                    talleRepository
+                            .findById(
+                                    variante.getTalle().getId()
+                            )
+                            .orElseThrow(() ->
+                                    new RuntimeException(
+                                            "Talle no encontrado"
+                                    )
+                            );
 
-            Color color = colorRepository
-                    .findById(variante.getColor().getId())
-                    .orElseThrow(() ->
-                            new RuntimeException("Color no encontrado"));
+            Color color =
+                    colorRepository
+                            .findById(
+                                    variante.getColor().getId()
+                            )
+                            .orElseThrow(() ->
+                                    new RuntimeException(
+                                            "Color no encontrado"
+                                    )
+                            );
 
             varianteExistente.setProducto(producto);
             varianteExistente.setTalle(talle);
@@ -210,7 +350,8 @@ public class ProductoVarianteController {
             varianteExistente.setStock(variante.getStock());
 
             ProductoVariante actualizada =
-                    productoVarianteRepository.save(varianteExistente);
+                    productoVarianteRepository
+                            .save(varianteExistente);
 
             return ResponseEntity.ok(actualizada);
 
@@ -234,25 +375,40 @@ public class ProductoVarianteController {
         }
     }
 
+    /**
+     * Elimina una variante.
+     */
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> eliminar(@PathVariable Long id) {
+    public ResponseEntity<?> eliminar(
+            @PathVariable Long id
+    ) {
 
         if (!productoVarianteRepository.existsById(id)) {
 
             return ResponseEntity
                     .status(HttpStatus.NOT_FOUND)
                     .body(Map.of(
-                            "error", "Variante no encontrada",
-                            "id", id
+                            "error",
+                            "Variante no encontrada",
+                            "id",
+                            id
                     ));
         }
 
         productoVarianteRepository.deleteById(id);
 
-        return ResponseEntity.noContent().build();
+        return ResponseEntity
+                .noContent()
+                .build();
     }
 
-    @GetMapping("/producto/{productoId}/talle/{talleId}/color/{colorId}")
+    /**
+     * Obtiene una variante específica
+     * por producto + talle + color.
+     */
+    @GetMapping(
+            "/producto/{productoId}/talle/{talleId}/color/{colorId}"
+    )
     public ResponseEntity<?> obtenerPorProductoTalleColor(
             @PathVariable Long productoId,
             @PathVariable Long talleId,
@@ -273,10 +429,14 @@ public class ProductoVarianteController {
             return ResponseEntity
                     .status(HttpStatus.NOT_FOUND)
                     .body(Map.of(
-                            "error", "Variante no encontrada",
-                            "productoId", productoId,
-                            "talleId", talleId,
-                            "colorId", colorId
+                            "error",
+                            "Variante no encontrada",
+                            "productoId",
+                            productoId,
+                            "talleId",
+                            talleId,
+                            "colorId",
+                            colorId
                     ));
         }
 
